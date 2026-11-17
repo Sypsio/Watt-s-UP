@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Watt Now</title>
+<style>
+:root{--bg:#eef1f4;--panel:#fff;--ink:#12343b;--muted:#5d7379;--line:#d5dde1;--pw:#2f5bff;--hr:#e5484d}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1c20;--panel:#172a30;--ink:#e8f0f2;--muted:#8ea6ac;--line:#28434a;--pw:#6b8bff;--hr:#ff6b70}}
+*{box-sizing:border-box}
+body{margin:0 auto;background:var(--bg);color:var(--ink);font-family:"Avenir Next Condensed","DIN Condensed","Arial Narrow",system-ui,sans-serif;padding:20px;max-width:960px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+h1{font-size:24px;margin:0;font-weight:700;cursor:pointer}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+button{font:inherit;font-size:16px;padding:10px 16px;border-radius:8px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--pw);outline-offset:2px}
+button.on,button.pri{background:var(--ink);color:var(--bg)}
+button.warn{border-color:var(--hr);color:var(--hr)}
+input,select{font:inherit;font-size:16px;padding:8px;border-radius:6px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink)}
+input[type=number]{width:72px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.lbl{color:var(--muted);font-size:15px}
+.val{font-size:clamp(52px,12vw,104px);line-height:1;font-weight:700;font-variant-numeric:tabular-nums}
+.unit{font-size:18px;color:var(--muted);margin-left:4px}
+.pw{color:var(--pw)}.hr{color:var(--hr)}
+.small{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.small .val{font-size:32px}
+canvas{width:100%;height:240px;display:block;margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.home{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}
+.home button{padding:48px 16px;font-size:26px;font-weight:600;border-radius:12px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.grp{margin-bottom:12px}
+.gh,.st{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.st{padding-left:12px;border-left:4px solid var(--pw)}
+#msg{position:fixed;left:0;right:0;bottom:0;padding:12px 20px;background:var(--panel);border-top:2px solid var(--pw);color:var(--ink);font-size:18px;min-height:20px;z-index:5}
+body{padding-bottom:80px}
+#pause{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vmin;pointer-events:none;z-index:4;background:rgba(15,28,32,.45)}
+#pause[hidden]{display:none}
+.pbars{display:flex;gap:6vmin}
+.pbars i{display:block;width:11vmin;height:30vmin;background:#e5484d;border-radius:2vmin}
+#ptxt{color:#fff;font-size:clamp(24px,5vmin,48px);font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+.tgt{font-size:clamp(60px,14vw,120px);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+@media (max-width:640px){.grid3{grid-template-columns:1fr}.home{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title" tabindex="0">Project Watt Now</h1>
+  <div class="btns"><button id="bT">Connect trainer</button><button id="bH">Connect heart rate</button></div>
+</header>
+
+<section id="v-home">
+  <div class="home">
+    <button class="pri" id="goFree">Free ride</button>
+    <button id="goBuild">Create my own workout</button>
+  </div>
+</section>
+
+<section id="v-free" hidden>
+  <div class="bar"><button data-go="home">Back</button><button id="bR" class="warn">Reset session</button></div>
+  <div class="grid3">
+    <div class="card"><div class="lbl">Power</div><span class="val pw" id="fP">--</span><span class="unit">W</span></div>
+    <div class="card"><div class="lbl">Heart rate</div><span class="val hr" id="fH">--</span><span class="unit">bpm</span></div>
+    <div class="card"><div class="lbl">Cadence</div><span class="val" id="fC">--</span><span class="unit">rpm</span></div>
+  </div>
+  <div class="small">
+    <div class="card"><div class="lbl">Average power</div><span class="val" id="fA">--</span><span class="unit">W</span></div>
+    <div class="card"><div class="lbl">Max power</div><span class="val" id="fM">--</span><span class="unit">W</span></div>
+    <div class="card"><div class="lbl">Ride time</div><span class="val" id="fT">0:00</span></div>
+  </div>
+  <canvas id="ch" width="1800" height="480"></canvas>
+  <div class="lbl" style="margin-top:8px">Blue: power. Red: heart rate. Last 10 minutes.</div>
+</section>
+
+<section id="v-build" hidden>
+  <div class="bar"><button data-go="home">Back</button>
+    <input id="wName" placeholder="Workout name" style="min-width:200px">
+    <button id="wSave">Save</button><button id="wNew">New</button>
+    <select id="wList"></select><button id="wLoad">Load</button><button id="wDel" class="warn">Delete</button>
+  </div>
+  <div id="blocks"></div>
+  <div class="bar"><button id="addG">+ Add block</button><span class="lbl" id="sum"></span><button id="wStart" class="pri" style="margin-left:auto">Start workout</button></div>
+  <div class="lbl">A block is one or more steps (minutes, seconds, watts) that repeat. Set repeat to 1 for a plain block, or for example 4 for 4 x 6 min.</div>
+</section>
+
+<section id="v-play" hidden>
+  <div class="bar"><button id="skip">Skip block</button><button id="stop" class="warn">Stop (back to free ride)</button></div>
+  <div class="grid3">
+    <div class="card"><div class="lbl">Target</div><span class="tgt" id="pT">--</span><span class="unit">W</span></div>
+    <div class="card"><div class="lbl">Actual power</div><span class="tgt pw" id="pP">--</span><span class="unit">W</span></div>
+    <div class="card"><div class="lbl">Block time left</div><span class="tgt" id="pL">0:00</span></div>
+  </div>
+  <div class="small">
+    <div class="card"><div class="lbl">Next</div><span class="val" style="font-size:28px" id="pN">--</span></div>
+    <div class="card"><div class="lbl">Heart rate / cadence</div><span class="val" style="font-size:28px" id="pHC">--</span></div>
+    <div class="card"><div class="lbl">Workout time left</div><span class="val" id="pW">0:00</span></div>
+  </div>
+  <canvas id="pc" width="1800" height="420"></canvas>
+</section>
+<div id="pause" hidden><div class="pbars"><i></i><i></i></div><div id="ptxt"></div></div>
+<div id="msg">Use Chrome or Edge. Close Zwift and the Wahoo app first, then wake the trainer by pedaling.</div>
+
+<script>
+const $=id=>document.getElementById(id), msg=t=>$('msg').textContent=t;
+const fmt=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+const live={p:null,h:null,c:null,s:null};
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n);
+if(!navigator.bluetooth) msg('This browser has no Web Bluetooth. Open this file in Chrome or Edge.');
+
+/* ---------- Bluetooth ---------- */
+let ctrl=null,q=Promise.resolve();
+function send(b){ if(!ctrl) return; q=q.then(()=>ctrl.writeValueWithResponse(new Uint8Array(b))).catch(e=>msg('Trainer command failed: '+e.message)); return q; }
+const reqCtl=()=>send([0]), startCmd=()=>send([7]), stopCmd=()=>send([8,1]);
+const setP=w=>{w=Math.max(0,Math.round(w));return send([5,w&255,(w>>8)&255]);};
+
+function parseBike(dv){
+  const f=dv.getUint16(0,true);let o=2;
+  if(!(f&1)){live.s=dv.getUint16(o,true)/100;o+=2;}
+  if(f&2)o+=2;
+  if(f&4){live.c=Math.round(dv.getUint16(o,true)/2);o+=2;}
+  if(f&8)o+=2; if(f&16)o+=3; if(f&32)o+=2;
+  if(f&64){live.p=dv.getInt16(o,true);o+=2;}
+  if(f&128)o+=2; if(f&256)o+=5;
+  if(f&512&&!hrDev)live.h=dv.getUint8(o);
+}
+let hrDev=false;
+async function connectTrainer(){
+  try{
+    const dev=await navigator.bluetooth.requestDevice({filters:[{services:[0x1826]},{services:[0x1818]}],optionalServices:[0x1826,0x1818]});
+    dev.addEventListener('gattserverdisconnected',()=>{ctrl=null;$('bT').classList.remove('on');$('bT').textContent='Connect trainer';msg('Trainer disconnected.');});
+    const srv=await dev.gatt.connect();let svc=null,ch,fn;
+    try{svc=await srv.getPrimaryService(0x1826);ch=await svc.getCharacteristic(0x2AD2);fn=parseBike;}
+    catch(e){svc=null;ch=await(await srv.getPrimaryService(0x1818)).getCharacteristic(0x2A63);fn=dv=>{live.p=dv.getInt16(2,true);};}
+    if(svc){try{
+      ctrl=await svc.getCharacteristic(0x2AD9);await ctrl.startNotifications();
+      ctrl.addEventListener('characteristicvaluechanged',e=>{const d=e.target.value;if(d.getUint8(0)===0x80&&d.getUint8(2)!==1)msg('Trainer answered with code '+d.getUint8(2)+' to command '+d.getUint8(1)+'.');});
+    }catch(e){ctrl=null;}}
+    ch.addEventListener('characteristicvaluechanged',e=>fn(e.target.value));
+    await ch.startNotifications();
+    $('bT').classList.add('on');$('bT').textContent=(dev.name||'Trainer')+' connected';
+    msg(ctrl?'Trainer connected, ERG control available.':'Trainer connected, but it offers no ERG control (data only).');
+  }catch(e){msg('Trainer: '+e.message);}
+}
+async function connectHR(){
+  try{
+    const dev=await navigator.bluetooth.requestDevice({filters:[{services:[0x180D]}]});
+    dev.addEventListener('gattserverdisconnected',()=>{hrDev=false;live.h=null;$('bH').classList.remove('on');$('bH').textContent='Connect heart rate';msg('Heart rate strap disconnected.');});
+    const srv=await dev.gatt.connect();
+    const ch=await(await srv.getPrimaryService(0x180D)).getCharacteristic(0x2A37);
+    ch.addEventListener('characteristicvaluechanged',e=>{const d=e.target.value;live.h=(d.getUint8(0)&1)?d.getUint16(1,true):d.getUint8(1);});
+    await ch.startNotifications();hrDev=true;
+    $('bH').classList.add('on');$('bH').textContent=(dev.name||'Strap')+' connected';msg('Heart rate connected.');
+  }catch(e){msg('Heart rate: '+e.message);}
+}
+$('bT').onclick=connectTrainer;$('bH').onclick=connectHR;
+
+/* ---------- Views ---------- */
+let view='home';
+function go(v){
+  view=v;['home','free','build','play'].forEach(n=>$('v-'+n).hidden=n!==v);
+  if(v==='build')renderB();
+}
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+$('title').onclick=()=>{if(view==='play')return;go('home');};
+$('goFree').onclick=()=>go('free');$('goBuild').onclick=()=>go('build');
+
+/* ---------- Free ride ---------- */
+let hist=[],sumP=0,nP=0,maxP=0,t0=null;
+$('bR').onclick=()=>{hist=[];sumP=0;nP=0;maxP=0;t0=null;$('fT').textContent='0:00';};
+const sh=(id,v)=>$(id).textContent=(v===null||v===undefined)?'--':v;
+function drawFree(){
+  const c=$('ch'),g=c.getContext('2d'),W=c.width,H=c.height,pad=40,L=pad+30,R=W-pad;
+  g.clearRect(0,0,W,H);
+  const maxPw=Math.max(300,...hist.map(d=>d.p||0));
+  g.strokeStyle=css('--line');g.fillStyle=css('--muted');g.font='22px sans-serif';g.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=pad+(H-2*pad)*i/4;g.beginPath();g.moveTo(L,y);g.lineTo(R,y);g.stroke();g.fillText(Math.round(maxPw*(1-i/4)),4,y+7);}
+  const step=(R-L)/599;
+  const line=(k,col,lo,hi)=>{g.strokeStyle=css(col);g.lineWidth=4;g.beginPath();let on=false;
+    hist.forEach((d,i)=>{const v=d[k];if(v==null){on=false;return;}
+      const x=R-(hist.length-1-i)*step,y=H-pad-(H-2*pad)*Math.min(1,Math.max(0,(v-lo)/(hi-lo)));
+      on?g.lineTo(x,y):g.moveTo(x,y);on=true;});g.stroke();};
+  line('p','--pw',0,maxPw);line('h','--hr',60,200);
+}
+
+/* ---------- Workout data and builder ---------- */
+const KEY='wattnow_workouts';
+const store={get(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){return{}}},set(o){try{localStorage.setItem(KEY,JSON.stringify(o))}catch(e){msg('Could not save in this browser.')}}};
+let cur={name:'',items:[{reps:1,steps:[{d:600,w:170}]},{reps:4,steps:[{d:360,w:260}]}]};
+const flatten=w=>{const o=[];w.items.forEach(g=>{for(let r=0;r<g.reps;r++)g.steps.forEach(s=>o.push({d:s.d,w:s.w}));});return o;};
+
+function renderB(){
+  $('wName').value=cur.name;
+  $('blocks').innerHTML=cur.items.map((g,gi)=>`<div class="card grp"><div class="gh">
+    <label>Repeat x <input type="number" min="1" max="99" value="${g.reps}" data-g="${gi}" data-f="reps"></label>
+    <button data-act="addS" data-g="${gi}">+ step</button><button class="warn" data-act="delG" data-g="${gi}">Remove block</button></div>
+    ${g.steps.map((s,si)=>`<div class="st" data-g="${gi}" data-s="${si}">
+      <input type="number" min="0" value="${Math.floor(s.d/60)}" data-f="m" aria-label="minutes"> min
+      <input type="number" min="0" max="59" value="${s.d%60}" data-f="sec" aria-label="seconds"> sec
+      <input type="number" min="0" max="2000" value="${s.w}" data-f="w" aria-label="watts"> W
+      <button class="warn" data-act="delS" data-g="${gi}" data-s="${si}" aria-label="Remove step">x</button></div>`).join('')}</div>`).join('');
+  const f=flatten(cur);$('sum').textContent=f.length+' steps, '+fmt(f.reduce((a,s)=>a+s.d,0))+' total';
+  const l=store.get();$('wList').innerHTML=Object.keys(l).map(n=>`<option>${n}</option>`).join('')||'<option value="">No saved workouts</option>';
+}
+$('blocks').addEventListener('input',e=>{
+  const t=e.target,f=t.dataset.f;if(!f)return;
+  const gEl=t.closest('[data-g]'),g=cur.items[+gEl.dataset.g];
+  if(f==='reps')g.reps=Math.max(1,Math.min(99,+t.value||1));
+  else{const st=t.closest('.st'),s=g.steps[+st.dataset.s];
+    if(f==='w')s.w=Math.max(0,+t.value||0);
+    else s.d=(+st.querySelector('[data-f=m]').value||0)*60+(+st.querySelector('[data-f=sec]').value||0);}
+  const fl=flatten(cur);$('sum').textContent=fl.length+' steps, '+fmt(fl.reduce((a,s)=>a+s.d,0))+' total';
+});
+$('blocks').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||!b.dataset.act)return;
+  const g=cur.items[+b.dataset.g];
+  if(b.dataset.act==='addS'){const l=g.steps[g.steps.length-1];g.steps.push({d:l.d,w:l.w});}
+  if(b.dataset.act==='delS'){g.steps.splice(+b.dataset.s,1);if(!g.steps.length)cur.items.splice(+b.dataset.g,1);}
+  if(b.dataset.act==='delG')cur.items.splice(+b.dataset.g,1);
+  renderB();
+});
+$('addG').onclick=()=>{cur.items.push({reps:1,steps:[{d:300,w:150}]});renderB();};
+$('wName').oninput=e=>cur.name=e.target.value;
+$('wNew').onclick=()=>{cur={name:'',items:[{reps:1,steps:[{d:300,w:150}]}]};renderB();};
+$('wSave').onclick=()=>{const n=cur.name.trim();if(!n){msg('Give the workout a name first.');return;}const l=store.get();l[n]=JSON.parse(JSON.stringify(cur));store.set(l);renderB();$('wList').value=n;msg('Saved "'+n+'".');};
+$('wLoad').onclick=()=>{const l=store.get(),n=$('wList').value;if(l[n]){cur=JSON.parse(JSON.stringify(l[n]));renderB();}};
+$('wDel').onclick=()=>{const l=store.get(),n=$('wList').value;if(l[n]&&confirm('Delete "'+n+'"?')){delete l[n];store.set(l);renderB();}};
+
+/* ---------- Player ---------- */
+let flat=[],idx=0,left=0,last=0,paused=true,zeroSince=null,elapsed=0,lastSend=0,running=false,totalD=0,trace=[],lock=null;
+function beginStep(){left=flat[idx].d*1000;setP(flat[idx].w);lastSend=Date.now();}
+$('wStart').onclick=async()=>{
+  flat=flatten(cur).filter(s=>s.d>0);
+  if(!flat.length){msg('Add at least one step with a duration.');return;}
+  if(!ctrl){msg($('bT').classList.contains('on')?'Trainer is connected but gave no ERG control. Close Zwift and the Wahoo app, reload this page, and connect the trainer again.':'Connect the trainer first (button at the top). ERG control needs it.');return;}
+  totalD=flat.reduce((a,s)=>a+s.d,0);trace=[];idx=0;go('play');
+  paused=true;zeroSince=null;elapsed=0;last=Date.now();$('ptxt').textContent='Start pedaling to begin.';$('pause').hidden=false;
+  await reqCtl();await startCmd();last=Date.now();beginStep();running=true;
+  try{lock=await navigator.wakeLock.request('screen');}catch(e){}
+};
+async function endWorkout(done){
+  running=false;$('pause').hidden=true;stopCmd();try{lock&&lock.release();}catch(e){}
+  msg(done?'Workout complete. Nice work!':'Workout stopped.');go('free');
+}
+$('stop').onclick=()=>endWorkout(false);
+$('skip').onclick=()=>{if(!running)return;idx++;if(idx>=flat.length)endWorkout(true);else beginStep();};
+window.addEventListener('beforeunload',e=>{if(running){e.preventDefault();e.returnValue='';}});
+
+function tickPlay(){
+  const now=Date.now(),dt=now-last;last=now;
+  const pedal=live.p!==null&&live.p>0;
+  if(paused){if(pedal){paused=false;zeroSince=null;$('pause').hidden=true;}}
+  else if(pedal)zeroSince=null;
+  else if(zeroSince===null)zeroSince=now;
+  else if(now-zeroSince>=3000){paused=true;left=Math.min(flat[idx].d*1000,left+3000);zeroSince=null;$('ptxt').textContent='Paused. Pedal to continue.';$('pause').hidden=false;}
+  if(!paused){left-=dt;if(left<=0){idx++;if(idx>=flat.length){endWorkout(true);return;}beginStep();}}
+  if(now-lastSend>5000){setP(flat[idx].w);lastSend=now;}
+  const L=left/1000,later=flat.slice(idx+1).reduce((a,s)=>a+s.d,0),nx=flat[idx+1];
+  elapsed=flat.slice(0,idx).reduce((a,s)=>a+s.d,0)+flat[idx].d-L;
+  $('pT').textContent=flat[idx].w;sh('pP',live.p);$('pL').textContent=fmt(L);
+  $('pN').textContent=nx?fmt(nx.d)+' at '+nx.w+' W':'Finish';
+  $('pHC').textContent=(live.h??'--')+' / '+(live.c??'--');
+  $('pW').textContent=fmt(L+later);
+  drawPlay(elapsed);
+}
+function drawPlay(el){
+  const c=$('pc'),g=c.getContext('2d'),W=c.width,H=c.height,pad=20;g.clearRect(0,0,W,H);
+  const maxW=Math.max(100,...flat.map(s=>s.w),...trace.map(t=>t.p))*1.1;let x=pad;const sc=(W-2*pad)/totalD;
+  flat.forEach((s,i)=>{const w=s.d*sc,h=(H-2*pad)*s.w/maxW;
+    g.fillStyle=css('--pw');g.globalAlpha=i<idx?0.25:(i===idx?0.9:0.5);g.fillRect(x,H-pad-h,Math.max(1,w-2),h);x+=w;});
+  g.globalAlpha=1;g.strokeStyle=css('--hr');g.lineWidth=3;g.beginPath();
+  trace.forEach((t,i)=>{const px=pad+t.t*sc,py=H-pad-(H-2*pad)*t.p/maxW;i?g.lineTo(px,py):g.moveTo(px,py);});g.stroke();
+  g.strokeStyle=css('--ink');g.lineWidth=2;g.beginPath();g.moveTo(pad+el*sc,pad);g.lineTo(pad+el*sc,H-pad);g.stroke();
+}
+
+/* ---------- Clocks ---------- */
+setInterval(()=>{
+  if(live.p!==null&&live.p>0){if(!t0)t0=Date.now();sumP+=live.p;nP++;maxP=Math.max(maxP,live.p);}
+  hist.push({p:live.p,h:live.h});if(hist.length>600)hist.shift();
+  if(running&&!paused&&live.p!==null)trace.push({t:elapsed,p:live.p});
+  if(view==='free'){
+    sh('fP',live.p);sh('fH',live.h);sh('fC',live.c);sh('fA',nP?Math.round(sumP/nP):null);sh('fM',nP?maxP:null);
+    if(t0)$('fT').textContent=fmt((Date.now()-t0)/1000);drawFree();
+  }
+},1000);
+setInterval(()=>{if(running&&view==='play')tickPlay();},250);
+</script>
+</body>
+</html>
