@@ -95,7 +95,7 @@ label{display:flex;gap:8px;align-items:center}
 </section>
 
 <section id="v-play" hidden>
-  <div class="bar"><button id="skip">Skip block</button><button id="stop" class="warn">Stop (back to free ride)</button></div>
+  <div class="bar"><button id="skip">Skip block</button><button id="stop" class="warn">Finish workout</button></div>
   <div class="grid3">
     <div class="card"><div class="lbl">Target</div><span class="tgt" id="pT">--</span><span class="unit">W</span></div>
     <div class="card"><div class="lbl">Actual power</div><span class="tgt pw" id="pP">--</span><span class="unit">W</span></div>
@@ -114,7 +114,8 @@ label{display:flex;gap:8px;align-items:center}
   <div id="rides"></div>
 </section>
 <section id="v-sum" hidden>
-  <div class="bar"><button id="sFree" class="pri">Free ride</button><button id="sBuild">Back to workouts</button><button id="sHist">Ride history</button></div>
+  <div class="bar" id="sPend" hidden><button id="sSave" class="pri">Save ride</button><button id="sDisc" class="warn">Discard ride</button></div>
+  <div class="bar" id="sNav"><button id="sFree" class="pri">Free ride</button><button id="sBuild">Back to workouts</button><button id="sHist">Ride history</button></div>
   <h2 id="sName"></h2>
   <div class="sgrid" id="sGrid"></div>
   <canvas id="sc" width="1800" height="480"></canvas>
@@ -265,9 +266,9 @@ async function endWorkout(done){
   running=false;$('pause').hidden=true;$('go').hidden=true;stopCmd();try{lock&&lock.release();}catch(e){}
   msg(done?'Workout complete. Nice work!':'Workout stopped.');if(rec.length>=10)saveRide(done);else go('free');
 }
-$('stop').onclick=()=>endWorkout(false);
+$('stop').onclick=()=>{if(confirm('Finish the workout?'))endWorkout(false);};
 $('skip').onclick=()=>{if(!running)return;idx++;if(idx>=flat.length)endWorkout(true);else beginStep();};
-window.addEventListener('beforeunload',e=>{if(running){e.preventDefault();e.returnValue='';}});
+window.addEventListener('beforeunload',e=>{if(running||pendingRide){e.preventDefault();e.returnValue='';}});
 
 function tickPlay(){
   const now=Date.now(),dt=now-last;last=now;
@@ -308,7 +309,7 @@ function showSummary(done,title){
     ['Average heart rate',H.length?Math.round(avg(H)):'--','bpm'],['Max heart rate',H.length?Math.max(...H):'--','bpm'],['Average cadence',C.length?Math.round(avg(C)):'--','rpm']];
   $('sGrid').innerHTML=items.map(([l,v,u])=>`<div class="card"><div class="lbl">${l}</div><span class="val" style="font-size:44px">${v}</span><span class="unit">${u}</span></div>`).join('');
   $('sName').textContent=title||((cur.name||'Workout')+(done?' complete':' stopped'));
-  go('sum');drawSum();
+  $('sPend').hidden=!pendingRide;$('sNav').hidden=!!pendingRide;go('sum');drawSum();
 }
 function drawSum(){
   const c=$('sc'),g=c.getContext('2d'),W=c.width,H=c.height,pad=40,L=pad+30,R=W-pad,n=rec.length;g.clearRect(0,0,W,H);
@@ -342,12 +343,20 @@ function toTCX(r){
   return `<?xml version="1.0" encoding="UTF-8"?><TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities><Activity Sport="Biking"><Id>${iso(t0)}</Id><Lap StartTime="${iso(t0)}"><TotalTimeSeconds>${r.rec.length}</TotalTimeSeconds><DistanceMeters>${d.toFixed(1)}</DistanceMeters><Intensity>Active</Intensity><TriggerMethod>Manual</TriggerMethod><Track>${pts}</Track></Lap></Activity></Activities></TrainingCenterDatabase>`;
 }
 
+let pendingRide=null;
 function saveRide(done){
-  const r={id:Date.now(),date:Date.now()-rec.length*1000,name:cur.name||'Workout',rec:rec.map(x=>[x.p,x.h||0,x.c||0,Math.round((x.s||0)*10),x.tg])};
-  const a=rides();a.push(r);if(saveRides(a))msg('Ride saved in history.');
+  pendingRide={id:Date.now(),date:Date.now()-rec.length*1000,name:cur.name||'Workout',rec:rec.map(x=>[x.p,x.h||0,x.c||0,Math.round((x.s||0)*10),x.tg])};
+  msg('Ride not saved yet. Press Save ride or Discard ride.');
   showSummary(done);
-  if(sv.get()&&autoOn())pushStrava(r);
 }
+$('sSave').onclick=()=>{
+  const r=pendingRide;if(!r)return;
+  const a=rides();a.push(r);
+  if(!saveRides(a))return;
+  pendingRide=null;$('sPend').hidden=true;$('sNav').hidden=false;msg('Ride saved in history.');
+  if(sv.get()&&autoOn())pushStrava(r);
+};
+$('sDisc').onclick=()=>{if(confirm('Discard this ride? It will not be saved or uploaded to Strava.')){pendingRide=null;msg('Ride discarded.');go('free');}};
 
 const FN='/.netlify/functions/strava';
 async function fn(b){
