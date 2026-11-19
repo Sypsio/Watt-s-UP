@@ -24,10 +24,10 @@ input[type=number]{width:72px}
 .val{font-size:clamp(52px,12vw,104px);line-height:1;font-weight:700;font-variant-numeric:tabular-nums}
 .unit{font-size:18px;color:var(--muted);margin-left:4px}
 .pw{color:var(--pw)}.hr{color:var(--hr)}
-.small{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.small{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:12px}
 .small .val{font-size:32px}
 canvas{width:100%;height:240px;display:block;margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
-.home{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}
+.home{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:24px}
 .home button{padding:48px 16px;font-size:26px;font-weight:600;border-radius:12px}
 .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .grp{margin-bottom:12px}
@@ -36,6 +36,11 @@ canvas{width:100%;height:240px;display:block;margin-top:12px;background:var(--pa
 #msg{position:fixed;left:0;right:0;bottom:0;padding:12px 20px;background:var(--panel);border-top:2px solid var(--pw);color:var(--ink);font-size:18px;min-height:20px;z-index:5}
 body{padding-bottom:80px}
 h2{font-size:28px;margin:4px 0 12px}
+#go{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vmin;pointer-events:none;z-index:4;background:rgba(15,28,32,.35)}
+#go[hidden]{display:none}
+.tri{width:0;height:0;border-top:15vmin solid transparent;border-bottom:15vmin solid transparent;border-left:26vmin solid #2fbf71}
+#gtxt{color:#fff;font-size:clamp(24px,5vmin,48px);font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+label{display:flex;gap:8px;align-items:center}
 .sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 @media (max-width:640px){.sgrid{grid-template-columns:repeat(2,1fr)}}
 #pause{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vmin;pointer-events:none;z-index:4;background:rgba(15,28,32,.45)}
@@ -50,13 +55,14 @@ h2{font-size:28px;margin:4px 0 12px}
 <body>
 <header>
   <h1 id="title" tabindex="0">Watt’s Up!</h1>
-  <div class="btns"><button id="bT">Connect trainer</button><button id="bH">Connect heart rate</button></div>
+  <div class="btns"><button id="bT">Connect trainer</button><button id="bH">Connect heart rate</button><button id="bS">Connect Strava</button></div>
 </header>
 
 <section id="v-home">
   <div class="home">
     <button class="pri" id="goFree">Free ride</button>
     <button id="goBuild">Create my own workout</button>
+    <button id="goHist">Ride history</button>
   </div>
 </section>
 
@@ -71,6 +77,7 @@ h2{font-size:28px;margin:4px 0 12px}
     <div class="card"><div class="lbl">Average power</div><span class="val" id="fA">--</span><span class="unit">W</span></div>
     <div class="card"><div class="lbl">Max power</div><span class="val" id="fM">--</span><span class="unit">W</span></div>
     <div class="card"><div class="lbl">Ride time</div><span class="val" id="fT">0:00</span></div>
+    <div class="card"><div class="lbl">Distance</div><span class="val" id="fD">0.00</span><span class="unit">km</span></div>
   </div>
   <canvas id="ch" width="1800" height="480"></canvas>
   <div class="lbl" style="margin-top:8px">Blue: power. Red: heart rate. Last 10 minutes.</div>
@@ -98,16 +105,22 @@ h2{font-size:28px;margin:4px 0 12px}
     <div class="card"><div class="lbl">Next</div><span class="val" style="font-size:28px" id="pN">--</span></div>
     <div class="card"><div class="lbl">Heart rate / cadence</div><span class="val" style="font-size:28px" id="pHC">--</span></div>
     <div class="card"><div class="lbl">Workout time left</div><span class="val" id="pW">0:00</span></div>
+    <div class="card"><div class="lbl">Distance</div><span class="val" id="pD">0.00</span><span class="unit">km</span></div>
   </div>
   <canvas id="pc" width="1800" height="420"></canvas>
 </section>
+<section id="v-hist" hidden>
+  <div class="bar"><button data-go="home">Back</button><label><input type="checkbox" id="autoS"> Upload new rides to Strava automatically</label></div>
+  <div id="rides"></div>
+</section>
 <section id="v-sum" hidden>
-  <div class="bar"><button id="sFree" class="pri">Free ride</button><button id="sBuild">Back to workouts</button></div>
+  <div class="bar"><button id="sFree" class="pri">Free ride</button><button id="sBuild">Back to workouts</button><button id="sHist">Ride history</button></div>
   <h2 id="sName"></h2>
   <div class="sgrid" id="sGrid"></div>
   <canvas id="sc" width="1800" height="480"></canvas>
   <div class="lbl" style="margin-top:8px">Blue: power. Red: heart rate. Grey: target.</div>
 </section>
+<div id="go" hidden><div class="tri"></div><div id="gtxt">Go!</div></div>
 <div id="pause" hidden><div class="pbars"><i></i><i></i></div><div id="ptxt"></div></div>
 <div id="msg">Use Chrome or Edge. Close Zwift and the Wahoo app first, then wake the trainer by pedaling.</div>
 
@@ -168,16 +181,16 @@ $('bT').onclick=connectTrainer;$('bH').onclick=connectHR;
 /* ---------- Views ---------- */
 let view='home';
 function go(v){
-  view=v;['home','free','build','play','sum'].forEach(n=>$('v-'+n).hidden=n!==v);
-  if(v==='build')renderB();
+  view=v;['home','free','build','play','sum','hist'].forEach(n=>$('v-'+n).hidden=n!==v);
+  if(v==='build')renderB();if(v==='hist')renderH();
 }
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
 $('title').onclick=()=>{if(view==='play')return;go('home');};
-$('goFree').onclick=()=>go('free');$('goBuild').onclick=()=>go('build');
+$('goFree').onclick=()=>go('free');$('goBuild').onclick=()=>go('build');$('goHist').onclick=()=>go('hist');
 
 /* ---------- Free ride ---------- */
-let hist=[],sumP=0,nP=0,maxP=0,t0=null;
-$('bR').onclick=()=>{hist=[];sumP=0;nP=0;maxP=0;t0=null;$('fT').textContent='0:00';};
+let hist=[],sumP=0,nP=0,maxP=0,t0=null,distF=0;
+$('bR').onclick=()=>{hist=[];sumP=0;nP=0;maxP=0;t0=null;distF=0;$('fT').textContent='0:00';$('fD').textContent='0.00';};
 const sh=(id,v)=>$(id).textContent=(v===null||v===undefined)?'--':v;
 function drawFree(){
   const c=$('ch'),g=c.getContext('2d'),W=c.width,H=c.height,pad=40,L=pad+30,R=W-pad;
@@ -237,20 +250,20 @@ $('wLoad').onclick=()=>{const l=store.get(),n=$('wList').value;if(l[n]){cur=JSON
 $('wDel').onclick=()=>{const l=store.get(),n=$('wList').value;if(l[n]&&confirm('Delete "'+n+'"?')){delete l[n];store.set(l);renderB();}};
 
 /* ---------- Player ---------- */
-let flat=[],idx=0,left=0,last=0,paused=true,zeroSince=null,elapsed=0,lastSend=0,running=false,totalD=0,trace=[],rec=[],lock=null;
+let flat=[],idx=0,left=0,last=0,paused=true,zeroSince=null,elapsed=0,lastSend=0,running=false,totalD=0,trace=[],rec=[],distW=0,lock=null;
 function beginStep(){left=flat[idx].d*1000;setP(flat[idx].w);lastSend=Date.now();}
 $('wStart').onclick=async()=>{
   flat=flatten(cur).filter(s=>s.d>0);
   if(!flat.length){msg('Add at least one step with a duration.');return;}
   if(!ctrl){msg($('bT').classList.contains('on')?'Trainer is connected but gave no ERG control. Close Zwift and the Wahoo app, reload this page, and connect the trainer again.':'Connect the trainer first (button at the top). ERG control needs it.');return;}
-  totalD=flat.reduce((a,s)=>a+s.d,0);trace=[];rec=[];idx=0;go('play');
+  totalD=flat.reduce((a,s)=>a+s.d,0);trace=[];rec=[];distW=0;idx=0;go('play');
   paused=true;zeroSince=null;elapsed=0;last=Date.now();$('ptxt').textContent='Start pedaling to begin.';$('pause').hidden=false;
   await reqCtl();await startCmd();last=Date.now();beginStep();running=true;
   try{lock=await navigator.wakeLock.request('screen');}catch(e){}
 };
 async function endWorkout(done){
-  running=false;$('pause').hidden=true;stopCmd();try{lock&&lock.release();}catch(e){}
-  msg(done?'Workout complete. Nice work!':'Workout stopped.');if(rec.length>=10)showSummary(done);else go('free');
+  running=false;$('pause').hidden=true;$('go').hidden=true;stopCmd();try{lock&&lock.release();}catch(e){}
+  msg(done?'Workout complete. Nice work!':'Workout stopped.');if(rec.length>=10)saveRide(done);else go('free');
 }
 $('stop').onclick=()=>endWorkout(false);
 $('skip').onclick=()=>{if(!running)return;idx++;if(idx>=flat.length)endWorkout(true);else beginStep();};
@@ -259,10 +272,10 @@ window.addEventListener('beforeunload',e=>{if(running){e.preventDefault();e.retu
 function tickPlay(){
   const now=Date.now(),dt=now-last;last=now;
   const pedal=live.p!==null&&live.p>0;
-  if(paused){if(pedal){paused=false;zeroSince=null;$('pause').hidden=true;}}
+  if(paused){if(pedal){paused=false;zeroSince=null;$('pause').hidden=true;flashGo();}}
   else if(pedal)zeroSince=null;
   else if(zeroSince===null)zeroSince=now;
-  else if(now-zeroSince>=3000){paused=true;left=Math.min(flat[idx].d*1000,left+3000);zeroSince=null;$('ptxt').textContent='Paused. Pedal to continue.';$('pause').hidden=false;}
+  else if(now-zeroSince>=3000){paused=true;left=Math.min(flat[idx].d*1000,left+3000);zeroSince=null;$('ptxt').textContent='Paused. Pedal to continue.';$('pause').hidden=false;$('go').hidden=true;}
   if(!paused){left-=dt;if(left<=0){idx++;if(idx>=flat.length){endWorkout(true);return;}beginStep();}}
   if(now-lastSend>5000){setP(flat[idx].w);lastSend=now;}
   const L=left/1000,later=flat.slice(idx+1).reduce((a,s)=>a+s.d,0),nx=flat[idx+1];
@@ -270,7 +283,7 @@ function tickPlay(){
   $('pT').textContent=flat[idx].w;sh('pP',live.p);$('pL').textContent=fmt(L);
   $('pN').textContent=nx?fmt(nx.d)+' at '+nx.w+' W':'Finish';
   $('pHC').textContent=(live.h??'--')+' / '+(live.c??'--');
-  $('pW').textContent=fmt(L+later);
+  $('pW').textContent=fmt(L+later);$('pD').textContent=distW.toFixed(2);
   drawPlay(elapsed);
 }
 function drawPlay(el){
@@ -284,7 +297,7 @@ function drawPlay(el){
 }
 
 /* ---------- Summary ---------- */
-function showSummary(done){
+function showSummary(done,title){
   const n=rec.length,avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
   const P=rec.map(r=>r.p),H=rec.map(r=>r.h).filter(v=>v!=null&&v>0),C=rec.map(r=>r.c).filter(v=>v>0);
   const dist=rec.reduce((a,r)=>a+(r.s||0)/3600,0),kj=P.reduce((a,b)=>a+b,0)/1000;
@@ -294,7 +307,7 @@ function showSummary(done){
     ['Average power',Math.round(avg(P)),'W'],['Normalized power',np?Math.round(np):'--','W'],['Max power',Math.max(...P),'W'],
     ['Average heart rate',H.length?Math.round(avg(H)):'--','bpm'],['Max heart rate',H.length?Math.max(...H):'--','bpm'],['Average cadence',C.length?Math.round(avg(C)):'--','rpm']];
   $('sGrid').innerHTML=items.map(([l,v,u])=>`<div class="card"><div class="lbl">${l}</div><span class="val" style="font-size:44px">${v}</span><span class="unit">${u}</span></div>`).join('');
-  $('sName').textContent=(cur.name||'Workout')+(done?' complete':' stopped');
+  $('sName').textContent=title||((cur.name||'Workout')+(done?' complete':' stopped'));
   go('sum');drawSum();
 }
 function drawSum(){
@@ -310,15 +323,99 @@ function drawSum(){
 }
 $('sFree').onclick=()=>go('free');$('sBuild').onclick=()=>go('build');
 
+/* ---------- Go flash ---------- */
+let goT=null;
+function flashGo(){$('go').hidden=false;clearTimeout(goT);goT=setTimeout(()=>{$('go').hidden=true;},2500);}
+
+/* ---------- Saved rides, TCX, Strava ---------- */
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rides=()=>{try{return JSON.parse(localStorage.getItem('wattnow_rides')||'[]')}catch(e){return[]}};
+const saveRides=a=>{try{localStorage.setItem('wattnow_rides',JSON.stringify(a));return true}catch(e){msg('Browser storage is full. Delete old rides in Ride history.');return false}};
+const autoOn=()=>{try{return localStorage.getItem('wattnow_auto')!=='0'}catch(e){return true}};
+const sv={get(){try{return JSON.parse(localStorage.getItem('wattnow_strava')||'null')}catch(e){return null}},set(o){try{o?localStorage.setItem('wattnow_strava',JSON.stringify(o)):localStorage.removeItem('wattnow_strava')}catch(e){}}};
+const updS=()=>{const c=!!sv.get();$('bS').textContent=c?'Strava connected':'Connect Strava';$('bS').classList.toggle('on',c);};
+
+function toTCX(r){
+  const t0=new Date(r.date).getTime(),iso=t=>new Date(t).toISOString();let d=0;
+  const pts=r.rec.map((x,i)=>{d+=(x[3]/10)/3.6;
+    return `<Trackpoint><Time>${iso(t0+i*1000)}</Time><DistanceMeters>${d.toFixed(1)}</DistanceMeters>${x[1]?`<HeartRateBpm><Value>${x[1]}</Value></HeartRateBpm>`:''}${x[2]?`<Cadence>${x[2]}</Cadence>`:''}<Extensions><TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2"><Watts>${x[0]}</Watts></TPX></Extensions></Trackpoint>`;}).join('');
+  return `<?xml version="1.0" encoding="UTF-8"?><TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities><Activity Sport="Biking"><Id>${iso(t0)}</Id><Lap StartTime="${iso(t0)}"><TotalTimeSeconds>${r.rec.length}</TotalTimeSeconds><DistanceMeters>${d.toFixed(1)}</DistanceMeters><Intensity>Active</Intensity><TriggerMethod>Manual</TriggerMethod><Track>${pts}</Track></Lap></Activity></Activities></TrainingCenterDatabase>`;
+}
+
+function saveRide(done){
+  const r={id:Date.now(),date:Date.now()-rec.length*1000,name:cur.name||'Workout',rec:rec.map(x=>[x.p,x.h||0,x.c||0,Math.round((x.s||0)*10),x.tg])};
+  const a=rides();a.push(r);if(saveRides(a))msg('Ride saved in history.');
+  showSummary(done);
+  if(sv.get()&&autoOn())pushStrava(r);
+}
+
+const FN='/.netlify/functions/strava';
+async function fn(b){
+  const r=await fetch(FN,{method:'POST',body:JSON.stringify(b)});let j;
+  try{j=await r.json();}catch(e){throw new Error('the server function is not reachable');}
+  if(!r.ok)throw new Error(j.message||j.error||('error '+r.status));return j;
+}
+async function stravaToken(){
+  let t=sv.get();if(!t)throw new Error('Strava is not connected');
+  if(t.expires_at*1000<Date.now()+60000){t=await fn({action:'refresh',refresh_token:t.refresh_token});sv.set(t);}
+  return t.access_token;
+}
+async function pushStrava(r){
+  try{
+    msg('Uploading to Strava…');
+    const tok=await stravaToken();
+    let u=await fn({action:'upload',access_token:tok,name:r.name+' (Watt’s Up!)',tcx:toTCX(r),external_id:'wattsup-'+r.id});
+    for(let i=0;i<6&&!u.activity_id&&!u.error;i++){await new Promise(x=>setTimeout(x,2000));u=await fn({action:'status',access_token:tok,id:u.id_str||u.id});}
+    if(u.error){msg('Strava: '+u.error);return;}
+    if(u.activity_id){const a=rides(),x=a.find(y=>y.id===r.id);if(x){x.strava=true;saveRides(a);}msg('Uploaded to Strava.');}
+    else msg('Strava is still processing the ride. Check your feed in a minute.');
+  }catch(e){msg('Strava upload failed: '+e.message);}
+}
+$('bS').onclick=async()=>{
+  if(sv.get()){if(confirm('Disconnect Strava?')){sv.set(null);updS();}return;}
+  try{const c=await fn({action:'config'});
+    location.href='https://www.strava.com/oauth/authorize?client_id='+c.client_id+'&response_type=code&approval_prompt=auto&scope=activity:write&redirect_uri='+encodeURIComponent(location.origin+location.pathname);
+  }catch(e){msg('Strava is not set up yet: '+e.message);}
+};
+
+function renderH(){
+  $('autoS').checked=autoOn();
+  const a=rides().slice().reverse();
+  $('rides').innerHTML=a.length?a.map(r=>{
+    const n=r.rec.length,ap=Math.round(r.rec.reduce((t,x)=>t+x[0],0)/n),km=(r.rec.reduce((t,x)=>t+x[3]/10,0)/3600).toFixed(1);
+    return `<div class="card grp"><div class="gh"><strong>${esc(r.name)}</strong><span class="lbl">${new Date(r.date).toLocaleString()}</span></div><div class="lbl">${fmt(n)} min, ${ap} W average, ${km} km${r.strava?', on Strava':''}</div><div class="gh" style="margin-top:8px"><button data-ra="open" data-id="${r.id}">Open</button><button data-ra="tcx" data-id="${r.id}">Download .tcx</button><button data-ra="up" data-id="${r.id}">Upload to Strava</button><button class="warn" data-ra="del" data-id="${r.id}">Delete</button></div></div>`;}).join(''):'<div class="lbl">No rides saved yet. Finish a workout and it appears here.</div>';
+}
+$('rides').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||!b.dataset.ra)return;
+  const all=rides(),r=all.find(x=>String(x.id)===b.dataset.id);if(!r)return;
+  if(b.dataset.ra==='open'){rec=r.rec.map(x=>({p:x[0],h:x[1]||null,c:x[2]||null,s:x[3]/10,tg:x[4]}));showSummary(true,r.name+', '+new Date(r.date).toLocaleDateString());}
+  if(b.dataset.ra==='tcx'){const u=URL.createObjectURL(new Blob([toTCX(r)],{type:'application/xml'})),l=document.createElement('a');l.href=u;l.download=r.name.replace(/[^\w-]+/g,'_')+'_'+new Date(r.date).toISOString().slice(0,10)+'.tcx';l.click();URL.revokeObjectURL(u);}
+  if(b.dataset.ra==='up')pushStrava(r).then(()=>renderH());
+  if(b.dataset.ra==='del'&&confirm('Delete this ride?')){saveRides(all.filter(x=>x.id!==r.id));renderH();}
+});
+$('autoS').onchange=e=>{try{localStorage.setItem('wattnow_auto',e.target.checked?'1':'0');}catch(x){}};
+$('sHist').onclick=()=>go('hist');
+
+(async()=>{
+  const q=new URLSearchParams(location.search),code=q.get('code');
+  if(q.get('error')){history.replaceState(null,'',location.pathname);msg('Strava connection was cancelled.');}
+  else if(code&&q.get('scope')){
+    history.replaceState(null,'',location.pathname);
+    if(!q.get('scope').includes('activity:write')){msg('Strava connected without upload permission. Connect again and keep that permission ticked.');}
+    else{try{sv.set(await fn({action:'token',code}));msg('Strava connected.');}catch(e){msg('Strava connection failed: '+e.message);}}
+  }
+  updS();
+})();
+
 /* ---------- Clocks ---------- */
 setInterval(()=>{
-  if(live.p!==null&&live.p>0){if(!t0)t0=Date.now();sumP+=live.p;nP++;maxP=Math.max(maxP,live.p);}
+  if(live.p!==null&&live.p>0){if(!t0)t0=Date.now();sumP+=live.p;nP++;maxP=Math.max(maxP,live.p);distF+=(live.s||0)/3600;}
   hist.push({p:live.p,h:live.h});if(hist.length>600)hist.shift();
   if(running&&!paused&&live.p!==null)trace.push({t:elapsed,p:live.p});
-  if(running&&!paused&&flat[idx])rec.push({p:live.p||0,h:live.h,c:live.c,s:live.s,tg:flat[idx].w});
+  if(running&&!paused&&flat[idx]){rec.push({p:live.p||0,h:live.h,c:live.c,s:live.s,tg:flat[idx].w});distW+=(live.s||0)/3600;}
   if(view==='free'){
     sh('fP',live.p);sh('fH',live.h);sh('fC',live.c);sh('fA',nP?Math.round(sumP/nP):null);sh('fM',nP?maxP:null);
-    if(t0)$('fT').textContent=fmt((Date.now()-t0)/1000);drawFree();
+    if(t0)$('fT').textContent=fmt((Date.now()-t0)/1000);$('fD').textContent=distF.toFixed(2);drawFree();
   }
 },1000);
 setInterval(()=>{if(running&&view==='play')tickPlay();},250);
